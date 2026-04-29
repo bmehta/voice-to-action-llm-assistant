@@ -151,7 +151,9 @@ app.post('/api/speak', async (req, res) => {
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'auq43ws1oslv0tO4BDa7';
+  /** eleven_monolingual_v1 was retired; multilingual v2 is the stable default per ElevenLabs API. */
+  const modelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 
   if (!apiKey) {
     return res.status(503).json({ error: 'ElevenLabs API key not configured.' });
@@ -159,10 +161,10 @@ app.post('/api/speak', async (req, res) => {
 
   try {
     const response = await axios.post(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
       {
         text: text.trim(),
-        model_id: 'eleven_monolingual_v1',
+        model_id: modelId,
         voice_settings: { stability: 0.5, similarity_boost: 0.75 },
       },
       {
@@ -178,8 +180,19 @@ app.post('/api/speak', async (req, res) => {
     res.set('Content-Type', 'audio/mpeg');
     res.send(Buffer.from(response.data));
   } catch (err) {
-    const message = err.response?.data?.detail?.message || err.message || 'TTS failed.';
-    res.status(500).json({ error: message });
+    const status = err.response?.status;
+    let detail = err.response?.data?.detail?.message ?? err.response?.data?.detail;
+    if (detail && typeof detail !== 'string') {
+      detail = Array.isArray(detail) ? detail.map((d) => d.msg || d).join('; ') : JSON.stringify(detail);
+    }
+    let message = detail || err.message || 'TTS failed.';
+    if (status === 404) {
+      message =
+        'ElevenLabs returned 404 (not found). Use a valid voice ID from your ElevenLabs account ' +
+        '(Settings → API → or Voices page). Placeholder text in .env will not work. ' +
+        `Request failed: ${typeof message === 'string' ? message : 'unknown'}`;
+    }
+    res.status(500).json({ error: typeof message === 'string' ? message : 'TTS failed.' });
   }
 });
 
