@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kitchen Assistant – Voice to Action</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <span class="header-icon">🍳</span>
+        <h1>Kitchen Assistant</h1>
+        <p class="subtitle">Speak your ingredients and get a recipe instantly</p>
+      </header>
+
+      <main class="main">
+        <!-- Mic button -->
+        <section class="record-section">
+          <button id="recordBtn" class="record-btn" aria-label="Start recording">
+            <span class="mic-icon">🎤</span>
+            <span id="recordLabel">Hold to Speak</span>
+          </button>
+          <p id="statusMsg" class="status-msg" aria-live="polite"></p>
+        </section>
+
+        <!-- Transcript -->
+        <section id="transcriptSection" class="card hidden">
+          <h2>You said:</h2>
+          <p id="transcriptText" class="card-body"></p>
+        </section>
+
+        <!-- Response -->
+        <section id="responseSection" class="card hidden">
+          <div class="response-header">
+            <h2>Kitchen Assistant:</h2>
+            <button id="speakBtn" class="speak-btn" title="Read aloud" aria-label="Read response aloud">
+              🔊 Read Aloud
+            </button>
+          </div>
+          <div id="responseText" class="card-body response-text"></div>
+          <audio id="ttsAudio" hidden></audio>
+        </section>
+
+        <!-- Error -->
+        <section id="errorSection" class="card error-card hidden">
+          <p id="errorText"></p>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>Powered by Whisper · GPT-4o · ElevenLabs</p>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

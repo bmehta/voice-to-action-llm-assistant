@@ -1,0 +1,26 @@
+{
+  "name": "voice-to-action-llm-assistant",
+  "version": "1.0.0",
+  "description": "Real-time voice-to-action Kitchen Assistant powered by Whisper, GPT-4o, and ElevenLabs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "jest --testPathPatterns=tests/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.5",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
+    "multer": "^2.1.1",
+    "openai": "^6.35.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
+  }
+}
