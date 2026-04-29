@@ -5,13 +5,14 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { OpenAI } = require('openai');
+const { OpenAI, toFile } = require('openai');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
 
 const UPLOADS_DIR = path.resolve(__dirname, 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const upload = multer({ dest: UPLOADS_DIR });
 
 app.use(cors());
@@ -38,6 +39,39 @@ const apiLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 
+/** Whisper infers format from the multipart filename; multer's disk path has no extension. */
+const WHISPER_EXT = new Set([
+  'flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm',
+]);
+
+function transcriptionUploadName(originalname, mimetype) {
+  const base = path.basename(originalname || '');
+  const ext = path.extname(base).slice(1).toLowerCase();
+  if (ext && WHISPER_EXT.has(ext)) {
+    return base;
+  }
+  const mime = (mimetype || '').split(';')[0].trim().toLowerCase();
+  const mimeMap = {
+    'audio/webm': 'webm',
+    'video/webm': 'webm',
+    'audio/ogg': 'ogg',
+    'audio/oga': 'oga',
+    'audio/mp4': 'mp4',
+    'video/mp4': 'mp4',
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/wave': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/flac': 'flac',
+    'audio/m4a': 'm4a',
+    'audio/mpga': 'mpga',
+  };
+  const fromMime = mimeMap[mime];
+  if (fromMime) return `recording.${fromMime}`;
+  return 'recording.webm';
+}
+
 /**
  * POST /api/transcribe
  * Accepts a multipart audio file upload, sends it to OpenAI Whisper,
@@ -55,14 +89,20 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   const safeFilePath = path.join(UPLOADS_DIR, safeFileName);
 
   try {
+    const uploadName = transcriptionUploadName(req.file.originalname, req.file.mimetype);
+    const file = await toFile(fs.createReadStream(safeFilePath), uploadName);
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(safeFilePath),
+      file,
       model: 'whisper-1',
     });
 
     res.json({ transcript: transcription.text });
   } catch (err) {
-    const message = err.message || 'Transcription failed.';
+    const message =
+      err.response?.data?.error?.message ||
+      err.error?.message ||
+      err.message ||
+      'Transcription failed.';
     res.status(500).json({ error: message });
   } finally {
     fs.unlink(safeFilePath, () => {});

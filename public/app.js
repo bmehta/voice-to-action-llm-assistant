@@ -53,7 +53,10 @@ async function startRecording() {
   }
 
   audioChunks = [];
-  mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType() });
+  const mime = getSupportedMimeType();
+  mediaRecorder = mime
+    ? new MediaRecorder(stream, { mimeType: mime })
+    : new MediaRecorder(stream);
 
   mediaRecorder.addEventListener('dataavailable', (e) => {
     if (e.data.size > 0) audioChunks.push(e.data);
@@ -64,7 +67,10 @@ async function startRecording() {
     handleRecordingComplete();
   });
 
-  mediaRecorder.start();
+  // Periodic timeslice so chunks arrive during recording; relying on a single final
+  // blob on stop races dataavailable vs stop in some browsers and yields truncated audio
+  // (Whisper then often returns nonsense like "you").
+  mediaRecorder.start(250);
   isRecording = true;
   recordBtn.classList.add('recording');
   recordLabel.textContent = 'Recording…';
@@ -72,6 +78,9 @@ async function startRecording() {
 }
 
 function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.requestData();
+  }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
@@ -85,15 +94,45 @@ function getSupportedMimeType() {
   return types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
 }
 
+/** Whisper/OpenAI use the multipart filename extension; map MIME → allowed ext. */
+function whisperFileExtension(mimeType) {
+  const base = (mimeType || '').split(';')[0].trim().toLowerCase();
+  const map = {
+    'audio/webm': 'webm',
+    'video/webm': 'webm',
+    'audio/ogg': 'ogg',
+    'audio/oga': 'oga',
+    'audio/mp4': 'mp4',
+    'video/mp4': 'mp4',
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/wave': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/flac': 'flac',
+    'audio/m4a': 'm4a',
+    'audio/mpga': 'mpga',
+  };
+  if (map[base]) return map[base];
+  const sub = base.includes('/') ? base.split('/')[1] : base;
+  const allowed = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']);
+  if (sub && allowed.has(sub)) return sub;
+  return 'webm';
+}
+
 /* ── Pipeline: audio → transcript → GPT response ────────────────────────── */
 async function handleRecordingComplete() {
   setLoading('Transcribing your voice');
 
-  const mimeType = audioChunks[0]?.type || 'audio/webm';
+  const mimeType =
+    (mediaRecorder && mediaRecorder.mimeType) ||
+    audioChunks[0]?.type ||
+    'audio/webm';
   const audioBlob = new Blob(audioChunks, { type: mimeType });
 
   // 1. Transcribe with Whisper
   const transcript = await transcribeAudio(audioBlob, mimeType);
+  console.log('transcript', transcript);
   if (!transcript) return;
 
   transcriptText.textContent = transcript;
@@ -110,7 +149,12 @@ async function handleRecordingComplete() {
 }
 
 async function transcribeAudio(blob, mimeType) {
-  const ext = mimeType.split('/')[1]?.split(';')[0] || 'webm';
+  if (!blob || blob.size === 0) {
+    showError('No audio captured. Try recording again.');
+    setStatus('');
+    return null;
+  }
+  const ext = whisperFileExtension(mimeType);
   const formData = new FormData();
   formData.append('audio', blob, `recording.${ext}`);
 

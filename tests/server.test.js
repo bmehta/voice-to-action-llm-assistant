@@ -12,12 +12,15 @@ const fs      = require('fs');
 /* ── Mock OpenAI ─────────────────────────────────────────────────────────── */
 jest.mock('openai', () => {
   const mockCreate = jest.fn();
+  const toFile = jest.fn(async (_stream, name) =>
+    new File([], name || 'recording.webm', { type: 'audio/webm' })
+  );
   const MockOpenAI = jest.fn().mockImplementation(() => ({
     audio: { transcriptions: { create: mockCreate } },
     chat:  { completions:    { create: mockCreate } },
   }));
   MockOpenAI._mockCreate = mockCreate;
-  return { OpenAI: MockOpenAI };
+  return { OpenAI: MockOpenAI, toFile };
 });
 
 /* ── Mock express-rate-limit (disable during tests) ─────────────────────── */
