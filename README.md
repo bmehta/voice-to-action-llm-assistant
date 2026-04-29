@@ -2,6 +2,9 @@
 
 A real-time voice-to-action web app that listens to your voice, understands your cooking intent, and suggests recipes — all powered by OpenAI Whisper, GPT-4o, and ElevenLabs.
 
+https://github.com/user-attachments/assets/3eb2caec-764d-408e-a2ac-c29aa3dfbcc8
+
+
 ## Features
 
 - 🎤 **Voice capture** via the browser's MediaRecorder API
